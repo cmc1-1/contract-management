@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cmd.exe /c \"where node 2>&1\")",
+      "Bash(cmd.exe /c \"node --version 2>&1\")",
+      "Bash(cmd.exe /c \"npm --version 2>&1\")",
+      "Bash(winget install OpenJS.NodeJS.LTS --silent --accept-source-agreements --accept-package-agreements)",
+      "Bash(export PATH=\"/c/Program Files/nodejs:$PATH\")",
+      "Bash(node --version)",
+      "Bash(npm --version)",
+      "Bash(npx create-next-app@latest . --typescript --tailwind --app --no-src-dir --import-alias \"@/*\" --yes)",
+      "Bash(export PATH=\"/c/Program Files/nodejs:/usr/bin:/bin:/usr/local/bin:$PATH\")",
+      "Bash(npm install prisma @prisma/client next-auth bcryptjs @types/bcryptjs @tiptap/react @tiptap/starter-kit @tiptap/extension-placeholder @tiptap/extension-typography @tiptap/extension-text-align @tiptap/extension-link @tiptap/extension-table @tiptap/extension-table-row @tiptap/extension-table-cell @tiptap/extension-table-header recharts tailwind-merge tailwindcss-animate class-variance-authority clsx lucide-react zod swr sonner date-fns @radix-ui/react-avatar @radix-ui/react-dialog @radix-ui/react-dropdown-menu @radix-ui/react-label @radix-ui/react-popover @radix-ui/react-scroll-area @radix-ui/react-select @radix-ui/react-separator @radix-ui/react-slot @radix-ui/react-tabs @radix-ui/react-tooltip react-day-picker)",
+      "Bash(npm install --save-dev @types/node @types/react @types/react-dom)",
+      "Bash(node -e \"const p = require\\(''./node_modules/tailwindcss/package.json''\\); console.log\\(p.version\\)\")",
+      "Bash(npx shadcn@latest init --defaults)",
+      "Bash(npx shadcn@latest add button card dialog input label select badge table dropdown-menu avatar textarea tooltip separator skeleton tabs sheet popover scroll-area --yes)",
+      "Bash(npx shadcn@latest add calendar --yes)",
+      "Bash(npx prisma init --datasource-provider postgresql)",
+      "Bash(npm install dotenv)",
+      "Bash(npx prisma generate)",
+      "Bash(node -e \"const p = require\\(''./node_modules/next-auth/package.json''\\); console.log\\(p.version\\)\")",
+      "Bash(\"/c/Program Files/nodejs/npm.cmd\" install tsx --save-dev)",
+      "Bash(\"/c/Program Files/nodejs/node.exe\" --version)",
+      "Bash(\"/c/Program Files/nodejs/npm.cmd\" --version)",
+      "Bash(npm install tsx --save-dev)",
+      "Bash(export PATH=\"/c/Program Files/nodejs:$PATH:/usr/bin:/bin\")",
+      "Bash(npx prisma migrate dev --name init)"
+    ]
+  }
+}
