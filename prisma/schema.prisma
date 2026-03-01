@@ -1,0 +1,280 @@
+// Contract Lifecycle Management — Prisma Schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────────────────────
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  APPROVER
+  EDITOR
+  VIEWER
+}
+
+enum ContractStatus {
+  DRAFT
+  PENDING_REVIEW
+  IN_REVIEW
+  APPROVED
+  SENT_FOR_SIGNING
+  SIGNED
+  REJECTED
+}
+
+enum ContractType {
+  REAL_ESTATE
+  EMPLOYMENT
+  SALES
+  OTHER
+}
+
+enum ActivityAction {
+  CONTRACT_CREATED
+  CONTRACT_UPDATED
+  CONTRACT_SUBMITTED_FOR_REVIEW
+  CONTRACT_APPROVED
+  CONTRACT_REJECTED
+  CONTRACT_SENT_FOR_SIGNING
+  CONTRACT_SIGNED
+  CONTRACT_RETURNED_TO_DRAFT
+  COMMENT_ADDED
+  COLLABORATOR_ADDED
+  COLLABORATOR_REMOVED
+  APPROVER_ASSIGNED
+  FILE_UPLOADED
+  SIGN_LINK_GENERATED
+  CLAUSE_INSERTED
+}
+
+// ─────────────────────────────────────────────────────────────
+// USER
+// ─────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         UserRole @default(VIEWER)
+  avatarUrl    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  createdContracts     Contract[]             @relation("ContractCreator")
+  assignedApprovals    Contract[]             @relation("ContractApprover")
+  collaborations       ContractCollaborator[]
+  comments             Comment[]
+  activityLogs         ActivityLog[]
+  notifications        Notification[]
+  clauses              Clause[]
+
+  @@index([email])
+  @@map("users")
+}
+
+// ─────────────────────────────────────────────────────────────
+// COUNTERPARTY
+// ─────────────────────────────────────────────────────────────
+
+model Counterparty {
+  id            String   @id @default(cuid())
+  companyName   String
+  contactPerson String
+  email         String
+  phone         String?
+  address       String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  contracts Contract[]
+
+  @@index([companyName])
+  @@index([email])
+  @@map("counterparties")
+}
+
+// ─────────────────────────────────────────────────────────────
+// CONTRACT
+// ─────────────────────────────────────────────────────────────
+
+model Contract {
+  id             String         @id @default(cuid())
+  title          String
+  type           ContractType
+  status         ContractStatus @default(DRAFT)
+  templateUsed   String?        // which template was used to start
+
+  // Financial & dates
+  value          Decimal?       @db.Decimal(15, 2)
+  startDate      DateTime?
+  endDate        DateTime?
+  renewalDate    DateTime?
+
+  // Rich text content (TipTap)
+  contentJson    String?        @db.Text
+  contentHtml    String?        @db.Text
+
+  // Uploaded file
+  uploadedFileKey       String?
+  uploadedFileName      String?
+  uploadedFileMime      String?
+  uploadedFileSizeBytes Int?
+
+  // E-signature
+  signToken       String?  @unique
+  signedAt        DateTime?
+  signerName      String?
+  signedIpAddress String?
+
+  // Approval
+  approverId   String?
+  approvalNote String?  @db.Text
+  approvedAt   DateTime?
+  rejectedAt   DateTime?
+
+  // Relations
+  creatorId      String
+  counterpartyId String?
+
+  creator      User          @relation("ContractCreator", fields: [creatorId], references: [id])
+  approver     User?         @relation("ContractApprover", fields: [approverId], references: [id])
+  counterparty Counterparty? @relation(fields: [counterpartyId], references: [id])
+
+  collaborators ContractCollaborator[]
+  comments      Comment[]
+  activityLogs  ActivityLog[]
+  notifications Notification[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([type])
+  @@index([creatorId])
+  @@index([approverId])
+  @@index([counterpartyId])
+  @@index([endDate])
+  @@index([renewalDate])
+  @@index([signToken])
+  @@map("contracts")
+}
+
+// ─────────────────────────────────────────────────────────────
+// COLLABORATORS
+// ─────────────────────────────────────────────────────────────
+
+model ContractCollaborator {
+  id         String   @id @default(cuid())
+  contractId String
+  userId     String
+  addedAt    DateTime @default(now())
+  addedById  String
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id])
+
+  @@unique([contractId, userId])
+  @@index([contractId])
+  @@index([userId])
+  @@map("contract_collaborators")
+}
+
+// ─────────────────────────────────────────────────────────────
+// COMMENTS
+// ─────────────────────────────────────────────────────────────
+
+model Comment {
+  id         String   @id @default(cuid())
+  contractId String
+  authorId   String
+  body       String   @db.Text
+  parentId   String?
+
+  contract Contract  @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  author   User      @relation(fields: [authorId], references: [id])
+  parent   Comment?  @relation("CommentThread", fields: [parentId], references: [id])
+  replies  Comment[] @relation("CommentThread")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([contractId])
+  @@index([authorId])
+  @@index([parentId])
+  @@map("comments")
+}
+
+// ─────────────────────────────────────────────────────────────
+// ACTIVITY LOG
+// ─────────────────────────────────────────────────────────────
+
+model ActivityLog {
+  id         String         @id @default(cuid())
+  contractId String
+  userId     String?
+  action     ActivityAction
+  metadata   Json?
+  createdAt  DateTime       @default(now())
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  user     User?    @relation(fields: [userId], references: [id])
+
+  @@index([contractId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("activity_logs")
+}
+
+// ─────────────────────────────────────────────────────────────
+// NOTIFICATIONS
+// ─────────────────────────────────────────────────────────────
+
+model Notification {
+  id         String    @id @default(cuid())
+  userId     String
+  contractId String?
+  title      String
+  body       String
+  isRead     Boolean   @default(false)
+  link       String?
+  createdAt  DateTime  @default(now())
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contract Contract? @relation(fields: [contractId], references: [id], onDelete: SetNull)
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+// ─────────────────────────────────────────────────────────────
+// CLAUSE LIBRARY
+// ─────────────────────────────────────────────────────────────
+
+model Clause {
+  id          String   @id @default(cuid())
+  userId      String
+  title       String
+  description String?
+  body        String   @db.Text  // TipTap JSON
+  bodyHtml    String   @db.Text  // Rendered HTML for preview
+  tags        String[]
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("clauses")
+}
