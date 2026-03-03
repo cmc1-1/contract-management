@@ -5,8 +5,9 @@ import { ContractStatus, UserRole } from "@/lib/generated/prisma/client";
 import { CommentThread } from "@/components/comments/comment-thread";
 import { ActivityFeed } from "@/components/activity/activity-feed";
 import { ContractCollaborators } from "@/components/contracts/contract-collaborators";
+import { AiAnalysisTab } from "@/components/contracts/ai-analysis-tab";
 import { buildSignUrl } from "@/lib/sign-token";
-import { Copy, FileText } from "lucide-react";
+import { Copy, FileText, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/utils";
@@ -46,6 +47,10 @@ export function ContractDetailTabs({
     <Tabs defaultValue="content">
       <TabsList className="bg-gray-100">
         <TabsTrigger value="content">Content</TabsTrigger>
+        <TabsTrigger value="ai-analysis" className="gap-1">
+          <Sparkles className="h-3.5 w-3.5" />
+          AI Analysis
+        </TabsTrigger>
         <TabsTrigger value="approval">Approval</TabsTrigger>
         <TabsTrigger value="comments">Comments</TabsTrigger>
         <TabsTrigger value="activity">Activity</TabsTrigger>
@@ -83,6 +88,11 @@ export function ContractDetailTabs({
             </p>
           )}
         </div>
+      </TabsContent>
+
+      {/* AI Analysis Tab */}
+      <TabsContent value="ai-analysis">
+        <AiAnalysisTab contractId={contract.id} />
       </TabsContent>
 
       {/* Approval Tab */}

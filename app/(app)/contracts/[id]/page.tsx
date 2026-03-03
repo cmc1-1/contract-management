@@ -7,6 +7,7 @@ import { ContractTypeBadge } from "@/components/contracts/contract-type-badge";
 import { ContractDetailTabs } from "@/components/contracts/contract-detail-tabs";
 import { ContractActions } from "@/components/contracts/contract-actions";
 import { ImmutableBanner } from "@/components/contracts/immutable-banner";
+import { ApproverReviewBrief } from "@/components/contracts/approver-review-brief";
 import { isContractImmutable, canEditContract } from "@/lib/permissions";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -107,6 +108,12 @@ export default async function ContractDetailPage({
           value={contract.counterparty?.companyName || "—"}
         />
       </div>
+
+      {/* AI Approver Brief — visible for APPROVER, MANAGER, ADMIN on review-pending contracts */}
+      {(userRole === "APPROVER" || userRole === "MANAGER" || userRole === "ADMIN") &&
+        (contract.status === "IN_REVIEW" || contract.status === "PENDING_REVIEW") && (
+          <ApproverReviewBrief contractId={contract.id} />
+        )}
 
       {/* Tabs: Content, Comments, Activity, Approval */}
       <ContractDetailTabs

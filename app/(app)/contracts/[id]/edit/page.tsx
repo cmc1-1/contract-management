@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { ContractEditor } from "@/components/contracts/contract-editor";
 import { ClauseInsertPanel } from "@/components/editor/clause-insert-panel";
+import { AiAssistantPanel } from "@/components/editor/ai-assistant-panel";
 import { ImmutableBanner } from "@/components/contracts/immutable-banner";
 import { ArrowLeft, Loader2, Lock } from "lucide-react";
 import Link from "next/link";
@@ -47,6 +48,7 @@ export default function ContractEditPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showClausePanel, setShowClausePanel] = useState(false);
+  const [showAiPanel, setShowAiPanel] = useState(false);
 
   // Form state
   const [title, setTitle] = useState("");
@@ -305,6 +307,7 @@ export default function ContractEditPage() {
               setContentHtml(html);
             }}
             onInsertClause={() => setShowClausePanel(true)}
+            onAiAssistant={() => setShowAiPanel(true)}
           />
         </div>
       )}
@@ -336,6 +339,13 @@ export default function ContractEditPage() {
       <ClauseInsertPanel
         open={showClausePanel}
         onClose={() => setShowClausePanel(false)}
+      />
+
+      {/* AI Drafting Assistant Panel */}
+      <AiAssistantPanel
+        open={showAiPanel}
+        onClose={() => setShowAiPanel(false)}
+        contractId={id}
       />
     </div>
   );

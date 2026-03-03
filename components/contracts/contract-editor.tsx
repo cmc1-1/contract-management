@@ -18,6 +18,7 @@ import {
   Redo,
   Minus,
   BookMarked,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -31,6 +32,7 @@ interface Props {
   onChange?: (output: EditorOutput) => void;
   readOnly?: boolean;
   onInsertClause?: () => void;
+  onAiAssistant?: () => void;
 }
 
 export function ContractEditor({
@@ -38,6 +40,7 @@ export function ContractEditor({
   onChange,
   readOnly = false,
   onInsertClause,
+  onAiAssistant,
 }: Props) {
   const editor = useEditor({
     extensions: [
@@ -175,6 +178,21 @@ export function ContractEditor({
             >
               <BookMarked className="h-3.5 w-3.5" />
               Insert Clause
+            </Button>
+          </>
+        )}
+        {onAiAssistant && (
+          <>
+            <div className="w-px h-5 bg-gray-200 mx-1" />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onAiAssistant}
+              className="h-7 text-xs gap-1 text-purple-600 border-purple-200 hover:bg-purple-50 hover:text-purple-700"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              AI Assistant
             </Button>
           </>
         )}

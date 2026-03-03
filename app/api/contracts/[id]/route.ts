@@ -91,6 +91,11 @@ export async function PATCH(
 
   const updated = await prisma.contract.update({ where: { id }, data });
 
+  // Invalidate AI analysis cache if content changed
+  if ("contentJson" in parsed.data || "contentHtml" in parsed.data) {
+    await prisma.contractAiAnalysis.deleteMany({ where: { contractId: id } });
+  }
+
   await logActivity({
     contractId: id,
     userId: session.user.id,

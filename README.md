@@ -130,6 +130,56 @@ Contracts that originate from uploaded documents (PDF or DOCX) are supported alo
 
 ---
 
+### AI-Powered Contract Intelligence
+
+ContractFlow embeds Anthropic Claude at three key workflow touchpoints, each with carefully engineered context — only the data each feature actually needs is sent to the model, keeping costs low and responses accurate.
+
+#### AI Risk Analysis + Playbook Compliance
+Before submitting a contract for review, users can run an AI risk check. Results are cached against the contract's content hash, so re-running on an unchanged contract costs nothing.
+
+- **Risk score** (0–100, colour-coded green/yellow/red) with plain-English explanation
+- **Risk flags** — specific clauses or terms that pose legal or commercial risk, each with severity (low/medium/high)
+- **Playbook compliance** — every contract is compared against the company's standard terms for that contract type. Deviations are flagged with what was expected vs. what was found
+- **Redline suggestions** — numbered list of suggested text changes, each showing the original language, the suggested replacement, and a rationale explaining *why* the change is recommended
+- **Key terms extraction** — structured pull of payment terms, liability cap, governing law, term length, renewal conditions, and more
+- **Obligation tracking** — list of time-bound commitments extracted from the contract with responsible party and deadline
+- **Missing clause detection** — highlights standard clauses that are absent from the contract
+
+The risk panel appears in the **Submit for Review** dialog as a lightweight summary. The full breakdown (all cards) is available on the **AI Analysis tab** of every contract detail page.
+
+#### AI Drafting Assistant
+A chat panel that slides in from the right side of the contract editor. Powered by Claude and grounded in the company playbook and a snapshot of the current contract structure.
+
+- **Draft mode** — ask for a new clause ("Add a termination clause with 30-day notice") and receive a formatted draft with an Insert into Contract button
+- **Review mode** — ask for a full contract review against the playbook to get section-by-section suggestions, each with an Apply button
+- **Explain mode** — ask what a clause means in plain English
+- **Rewrite mode** — ask to make a section more favourable and receive a diff showing original vs. suggested language
+- Conversation history persists per contract — closing and reopening the panel restores the full history
+- Inserted drafts are placed directly into the TipTap editor at the current cursor position
+
+#### Approver AI Review Brief
+When an Approver opens a contract in **IN REVIEW** status, a summary card appears automatically — before they read a single line of the contract.
+
+- **Executive summary** — 4–6 bullet points covering key obligations and financial terms
+- **Playbook compliance status** — Green / Yellow / Red indicator with the top deviations listed
+- **Obligation highlights** — time-bound commitments with deadlines
+- **Top risk** — the single most important issue requiring attention
+- **AI recommendation** — one-line verdict: "Approve with standard terms", "Review sections 4 and 7 before approving", or "Reject — liability terms exceed acceptable limits"
+
+The brief re-uses the cached risk analysis data from Feature 1 wherever available, making it effectively free when the contract has already been analysed.
+
+#### Company Playbooks
+All three AI features are grounded in a company playbook — a set of preferred, fallback, and unacceptable positions for each standard clause type, per contract type. The playbook is injected into every AI prompt as the authoritative benchmark.
+
+| Contract Type | Clauses Covered |
+|---|---|
+| Employment | Non-compete, IP assignment, termination, confidentiality, non-solicitation, arbitration, and more |
+| Sales | Payment terms, limitation of liability, indemnification, warranty, IP ownership, auto-renewal, and more |
+| Real Estate | Inspection contingency, financing, earnest money, closing costs, title insurance, and more |
+| Other | Confidentiality, limitation of liability, IP ownership, termination, dispute resolution |
+
+---
+
 ## Architecture
 
 ### Tech Stack
@@ -148,6 +198,7 @@ Contracts that originate from uploaded documents (PDF or DOCX) are supported alo
 | Data Fetching | SWR (client-side) |
 | Notifications | Sonner (toast) |
 | Password Hashing | bcryptjs |
+| AI / LLM | Anthropic Claude (claude-sonnet for analysis, claude-haiku for chat) |
 
 ### Project Structure
 
@@ -164,6 +215,10 @@ Contracts that originate from uploaded documents (PDF or DOCX) are supported alo
 │   ├── (auth)/login/           # Login page
 │   ├── api/                    # REST API routes
 │   │   ├── contracts/          # Contract CRUD + workflow actions
+│   │   │   └── [id]/
+│   │   │       ├── ai-analysis/        # Risk analysis + playbook compliance
+│   │   │       ├── ai-approver-brief/  # Approver review brief
+│   │   │       └── ai-chat/            # Drafting assistant conversation
 │   │   ├── clauses/            # Clause CRUD
 │   │   ├── counterparties/     # Counterparty CRUD
 │   │   ├── users/              # User management
@@ -173,14 +228,20 @@ Contracts that originate from uploaded documents (PDF or DOCX) are supported alo
 │   └── sign/[token]/           # Public signing page (no auth required)
 ├── components/
 │   ├── contracts/              # Editor, table, filters, badges, actions
+│   │   ├── ai-analysis-tab.tsx     # Full AI analysis tab (all cards)
+│   │   ├── ai-risk-panel.tsx       # Compact risk panel for submit dialog
+│   │   └── approver-review-brief.tsx # Approver brief card
 │   ├── activity/               # Activity feed
 │   ├── clauses/                # Clause form
 │   ├── comments/               # Comment thread
-│   ├── editor/                 # Clause insert panel
+│   ├── editor/                 # Clause insert panel + AI assistant panel
+│   │   └── ai-assistant-panel.tsx  # Drafting assistant chat UI
 │   ├── layout/                 # Sidebar, topbar, providers
 │   ├── notifications/          # Notification bell
 │   └── ui/                     # shadcn/ui primitives
 ├── lib/
+│   ├── ai.ts                   # Anthropic SDK wrapper + text extraction utilities
+│   ├── playbooks.ts            # Company standard terms per contract type
 │   ├── auth.ts                 # NextAuth config
 │   ├── prisma.ts               # Prisma client singleton
 │   ├── permissions.ts          # Role permission helpers
@@ -209,6 +270,8 @@ Contracts that originate from uploaded documents (PDF or DOCX) are supported alo
 - **Comment** — contractId, authorId, body, parentId (threaded)
 - **Clause** — title, description, body (TipTap JSON), tags
 - **Notification** — userId, contractId, title, body, link, isRead
+- **ContractAiAnalysis** — cached AI analysis per contract: risk score, risk flags, playbook deviations, redline suggestions, key terms, obligations, approver brief. Keyed by a SHA-256 hash of the contract content — automatically invalidated when the contract is edited
+- **AiConversationMessage** — per-contract chat history for the drafting assistant: role (user/assistant), content, timestamp
 
 ---
 
@@ -256,7 +319,10 @@ UPLOAD_DIR="./uploads/contracts"
 MAX_FILE_SIZE_BYTES=20971520
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
 NEXT_PUBLIC_APP_NAME="Contract Manager"
+ANTHROPIC_API_KEY="sk-ant-..."
 ```
+
+`ANTHROPIC_API_KEY` is required for all AI features. Get your key from [console.anthropic.com](https://console.anthropic.com) → API Keys. Without this key the app runs normally but all AI features will return an error.
 
 To generate a secure `NEXTAUTH_SECRET` on Windows (PowerShell):
 ```powershell
@@ -308,14 +374,18 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 1. Log in as **Admin** and explore the Dashboard, Contracts, and Admin panel
 2. Log in as **Editor** and create a new contract — pick a template, notice the editor pre-populates
-3. Submit the contract for review
-4. Log in as **Admin** and assign an approver
-5. Log in as **Approver** and approve the contract
-6. Back as **Admin**, send the contract for signing — copy the signing link
-7. Open the signing link in a private/incognito browser window (no login needed) and sign
-8. Observe the contract is now SIGNED and locked from editing
-9. Check the activity trail on the contract for the full audit history
-10. Visit the Clause Library, create a clause, then insert it into a new contract
+3. In the editor, click the purple **AI Assistant** button in the toolbar — try asking it to "Add a termination clause with 30-day notice" and insert the drafted text
+4. Still in the editor, ask the assistant to "Review this contract against our playbook" to see section-by-section suggestions
+5. Click **Submit for Review** — click **Run Check** in the AI risk panel to see the risk score, playbook deviations, and missing clauses before submitting
+6. Log in as **Admin** and assign an approver
+7. Log in as **Approver** and open the IN REVIEW contract — notice the AI Review Brief card at the top with the executive summary and recommendation, without having read the contract
+8. Open the **AI Analysis** tab on the contract detail page for the full breakdown: risk flags, redline suggestions, key terms, and obligations
+9. Approve the contract
+10. Back as **Admin**, send the contract for signing — copy the signing link
+11. Open the signing link in a private/incognito browser window (no login needed) and sign
+12. Observe the contract is now SIGNED and locked from editing
+13. Check the activity trail on the contract for the full audit history
+14. Visit the Clause Library, create a clause, then insert it into a new contract
 
 ---
 

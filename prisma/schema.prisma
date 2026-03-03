@@ -150,10 +150,12 @@ model Contract {
   approver     User?         @relation("ContractApprover", fields: [approverId], references: [id])
   counterparty Counterparty? @relation(fields: [counterpartyId], references: [id])
 
-  collaborators ContractCollaborator[]
-  comments      Comment[]
-  activityLogs  ActivityLog[]
-  notifications Notification[]
+  collaborators          ContractCollaborator[]
+  comments               Comment[]
+  activityLogs           ActivityLog[]
+  notifications          Notification[]
+  aiAnalysis             ContractAiAnalysis?
+  aiConversationMessages AiConversationMessage[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -277,4 +279,64 @@ model Clause {
 
   @@index([userId])
   @@map("clauses")
+}
+
+// ─────────────────────────────────────────────────────────────
+// AI ANALYSIS CACHE
+// ─────────────────────────────────────────────────────────────
+
+model ContractAiAnalysis {
+  id                 String   @id @default(cuid())
+  contractId         String   @unique
+  contentHash        String   // SHA-256 of contentJson — cache key
+
+  // Risk analysis (Feature 1)
+  riskScore          Int?     // 0-100
+  riskLevel          String?  // "LOW" | "MEDIUM" | "HIGH"
+  riskFlags          Json?    // [{ flag, severity, explanation }]
+
+  // Playbook compliance (Feature 1, inspired by Ironclad)
+  playbookDeviations Json?    // [{ clause, expected, found, severity }]
+
+  // Redline suggestions (Feature 1, inspired by Ironclad)
+  redlineSuggestions  Json?   // [{ section, original, suggested, rationale }]
+
+  // Clause gap analysis
+  clauseGaps         Json?    // string[]
+
+  // Structured key term extraction (inspired by Evisort)
+  keyTerms           Json?    // { paymentTerms, liabilityLimit, governingLaw, ... }
+
+  // Obligation extraction (inspired by Evisort)
+  obligations        Json?    // [{ obligation, deadline, party, section }]
+
+  // Summaries
+  contractSummary    String?  @db.Text
+  approverBrief      Json?    // { executiveBullets, playbookCompliance, ... } (Feature 4)
+
+  // Timestamps
+  generatedAt        DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@index([contractId])
+  @@map("contract_ai_analyses")
+}
+
+// ─────────────────────────────────────────────────────────────
+// AI CONVERSATION MESSAGES (Feature 2 — Drafting Assistant)
+// ─────────────────────────────────────────────────────────────
+
+model AiConversationMessage {
+  id         String   @id @default(cuid())
+  contractId String
+  role       String   // "user" | "assistant"
+  content    String   @db.Text
+  createdAt  DateTime @default(now())
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@index([contractId, createdAt])
+  @@map("ai_conversation_messages")
 }

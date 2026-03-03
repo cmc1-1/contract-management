@@ -29,6 +29,7 @@ import {
 } from "@/lib/permissions";
 import { canTransition } from "@/lib/contract-transitions";
 import { buildSignUrl } from "@/lib/sign-token";
+import { AiRiskPanel } from "@/components/contracts/ai-risk-panel";
 import { Copy, CheckCircle, Send, XCircle } from "lucide-react";
 import useSWR from "swr";
 
@@ -185,6 +186,9 @@ export function ContractActions({ contract, userRole, userId }: Props) {
             <DialogTitle>Submit for Review</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            {/* AI Risk Panel — shows risk score before submission */}
+            <AiRiskPanel contractId={contract.id} />
+
             <div className="space-y-1.5">
               <Label>Assign Approver (optional)</Label>
               <Select
