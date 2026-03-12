@@ -3,7 +3,6 @@
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import TextAlign from "@tiptap/extension-text-align";
-import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
 import { useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
@@ -42,41 +41,49 @@ export function ContractEditor({
   onInsertClause,
   onAiAssistant,
 }: Props) {
-  // Capture initialContent in a ref so the safety-net effect always has
-  // access to the value set at mount time, without going stale.
-  const initialContentRef = useRef(initialContent);
+  // Deep-clone the content at mount time so we always have a plain JS object.
+  // RSC-serialized objects from Next.js may have special React descriptors
+  // that confuse TipTap's ProseMirror schema.nodeFromJSON — a JSON round-trip
+  // strips all of that away.
+  const initialContentRef = useRef(
+    initialContent ? JSON.parse(JSON.stringify(initialContent)) : null
+  );
 
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      // StarterKit v3 already bundles Link, so we configure it via the
+      // starterkit option rather than adding it separately (which would
+      // produce a duplicate extension warning and unpredictable behaviour).
+      StarterKit.configure({
+        link: { openOnClick: false },
+      }),
       TextAlign.configure({ types: ["heading", "paragraph"] }),
-      Link.configure({ openOnClick: false }),
       Placeholder.configure({
         placeholder: "Start writing your contract…",
       }),
     ],
-    // Primary mechanism: pass content directly so TipTap builds the
-    // initial ProseMirror document from it on construction.
-    content: initialContent ?? "",
     editable: !readOnly,
     immediatelyRender: false,
+    onContentError: ({ error }) => {
+      // eslint-disable-next-line no-console
+      console.error("[ContractEditor] TipTap content error:", error);
+    },
     onUpdate: ({ editor }) => {
       onChange?.({
         json: editor.getJSON(),
         html: editor.getHTML(),
       });
     },
-  });
+  }, []);
 
-  // Safety-net: TipTap v3 with immediatelyRender:false creates the editor
-  // asynchronously (in a useEffect). If the content prop didn't take effect
-  // — e.g. due to the React 18 render cycle — force-set it the moment the
-  // editor instance first becomes available.
+  // Set initial content once the editor instance is ready.
   useEffect(() => {
     if (!editor || !initialContentRef.current) return;
-    if (editor.isEmpty) {
-      editor.commands.setContent(initialContentRef.current);
-    }
+    // eslint-disable-next-line no-console
+    console.log("[ContractEditor] setting content, isEmpty=", editor.isEmpty, "content keys=", Object.keys(initialContentRef.current));
+    const ok = editor.commands.setContent(initialContentRef.current);
+    // eslint-disable-next-line no-console
+    console.log("[ContractEditor] setContent result=", ok, "isEmpty after=", editor.isEmpty);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor]);
 
