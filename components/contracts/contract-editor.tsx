@@ -42,7 +42,7 @@ export function ContractEditor({
   onInsertClause,
   onAiAssistant,
 }: Props) {
-  // Capture initialContent in a ref so the onCreate closure always has
+  // Capture initialContent in a ref so the safety-net effect always has
   // access to the value set at mount time, without going stale.
   const initialContentRef = useRef(initialContent);
 
@@ -55,16 +55,11 @@ export function ContractEditor({
         placeholder: "Start writing your contract…",
       }),
     ],
+    // Primary mechanism: pass content directly so TipTap builds the
+    // initial ProseMirror document from it on construction.
     content: initialContent ?? "",
     editable: !readOnly,
     immediatelyRender: false,
-    // onCreate fires once the editor is fully initialised and ready to accept
-    // commands — more reliable than useEffect for setting initial content.
-    onCreate: ({ editor }) => {
-      if (initialContentRef.current) {
-        editor.commands.setContent(initialContentRef.current);
-      }
-    },
     onUpdate: ({ editor }) => {
       onChange?.({
         json: editor.getJSON(),
@@ -72,6 +67,18 @@ export function ContractEditor({
       });
     },
   });
+
+  // Safety-net: TipTap v3 with immediatelyRender:false creates the editor
+  // asynchronously (in a useEffect). If the content prop didn't take effect
+  // — e.g. due to the React 18 render cycle — force-set it the moment the
+  // editor instance first becomes available.
+  useEffect(() => {
+    if (!editor || !initialContentRef.current) return;
+    if (editor.isEmpty) {
+      editor.commands.setContent(initialContentRef.current);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor]);
 
   const insertContent = useCallback(
     (content: object) => {
