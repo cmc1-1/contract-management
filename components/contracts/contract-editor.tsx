@@ -5,7 +5,7 @@ import StarterKit from "@tiptap/starter-kit";
 import TextAlign from "@tiptap/extension-text-align";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Bold,
@@ -62,13 +62,17 @@ export function ContractEditor({
     },
   });
 
-  // Update content when initialContent changes
+  // Reliably set initial content once the editor instance becomes available.
+  // useEditor returns null on the first render (TipTap initialises async),
+  // so we watch for the editor reference and use a ref flag to set content
+  // exactly once — preventing both "blank on first load" and infinite loops.
+  const contentInitialisedRef = useRef(false);
   useEffect(() => {
-    if (editor && initialContent && !editor.isFocused) {
+    if (editor && initialContent && !contentInitialisedRef.current) {
       editor.commands.setContent(initialContent);
+      contentInitialisedRef.current = true;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [editor, initialContent]);
 
   const insertContent = useCallback(
     (content: object) => {

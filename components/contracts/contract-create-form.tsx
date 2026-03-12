@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { ContractEditor } from "./contract-editor";
 import { ClauseInsertPanel } from "@/components/editor/clause-insert-panel";
+import { AiAssistantPanel } from "@/components/editor/ai-assistant-panel";
 import { TemplateConfig, TEMPLATES } from "@/lib/templates";
 import { Loader2 } from "lucide-react";
 
@@ -40,6 +41,8 @@ export function ContractCreateForm({ template }: Props) {
   const router = useRouter();
   const [isSaving, setIsSaving] = useState(false);
   const [showClausePanel, setShowClausePanel] = useState(false);
+  const [showAiPanel, setShowAiPanel] = useState(false);
+  const [savedContractId, setSavedContractId] = useState<string | null>(null);
   const [title, setTitle] = useState(template.defaultTitle);
   const [type, setType] = useState(typeFromTemplateId(template.id));
   const [value, setValue] = useState("");
@@ -71,10 +74,12 @@ export function ContractCreateForm({ template }: Props) {
     }
   }
 
-  async function handleSave() {
+  // Creates the contract as a draft and returns its ID.
+  // Used by both Save and AI Assistant (which needs an ID to persist chat).
+  async function saveAsDraft(): Promise<string | null> {
     if (!title.trim()) {
       toast.error("Title is required");
-      return;
+      return null;
     }
     setIsSaving(true);
     try {
@@ -96,14 +101,37 @@ export function ContractCreateForm({ template }: Props) {
       if (!res.ok) {
         const err = await res.json();
         toast.error(err.error || "Failed to save contract");
-        return;
+        return null;
       }
 
       const contract = await res.json();
-      toast.success("Contract saved as draft");
-      router.push(`/contracts/${contract.id}`);
+      return contract.id as string;
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function handleSave() {
+    const id = await saveAsDraft();
+    if (id) {
+      toast.success("Contract saved as draft");
+      router.push(`/contracts/${id}`);
+    }
+  }
+
+  // When opening AI during creation: auto-save as draft first to get an ID,
+  // then open the panel in place. The user stays on this page.
+  async function handleAiAssistant() {
+    // If we already saved this draft, reuse its ID
+    if (savedContractId) {
+      setShowAiPanel(true);
+      return;
+    }
+    toast.info("Saving draft before opening AI Assistant…");
+    const id = await saveAsDraft();
+    if (id) {
+      setSavedContractId(id);
+      setShowAiPanel(true);
     }
   }
 
@@ -185,6 +213,7 @@ export function ContractCreateForm({ template }: Props) {
             setContentHtml(html);
           }}
           onInsertClause={() => setShowClausePanel(true)}
+          onAiAssistant={handleAiAssistant}
         />
       </div>
 
@@ -208,6 +237,15 @@ export function ContractCreateForm({ template }: Props) {
         open={showClausePanel}
         onClose={() => setShowClausePanel(false)}
       />
+
+      {/* AI Drafting Assistant Panel — available once draft is auto-saved */}
+      {savedContractId && (
+        <AiAssistantPanel
+          open={showAiPanel}
+          onClose={() => setShowAiPanel(false)}
+          contractId={savedContractId}
+        />
+      )}
     </div>
   );
 }
