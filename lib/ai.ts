@@ -12,9 +12,9 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
 export const MODELS = {
   /** Low-cost, fast: chat turns, approver brief, lightweight tasks */
-  FAST: "claude-haiku-3-5-20241022",
+  FAST: "claude-haiku-4-5-20251001",
   /** Mid-tier, stronger reasoning: risk analysis, full reviews */
-  CAPABLE: "claude-sonnet-4-20250514",
+  CAPABLE: "claude-sonnet-4-5",
 } as const;
 
 // ─────────────────────────────────────────────────────────────
