@@ -42,6 +42,10 @@ export function ContractEditor({
   onInsertClause,
   onAiAssistant,
 }: Props) {
+  // Capture initialContent in a ref so the onCreate closure always has
+  // access to the value set at mount time, without going stale.
+  const initialContentRef = useRef(initialContent);
+
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -51,9 +55,16 @@ export function ContractEditor({
         placeholder: "Start writing your contract…",
       }),
     ],
-    content: initialContent || "",
+    content: initialContent ?? "",
     editable: !readOnly,
     immediatelyRender: false,
+    // onCreate fires once the editor is fully initialised and ready to accept
+    // commands — more reliable than useEffect for setting initial content.
+    onCreate: ({ editor }) => {
+      if (initialContentRef.current) {
+        editor.commands.setContent(initialContentRef.current);
+      }
+    },
     onUpdate: ({ editor }) => {
       onChange?.({
         json: editor.getJSON(),
@@ -61,18 +72,6 @@ export function ContractEditor({
       });
     },
   });
-
-  // Reliably set initial content once the editor instance becomes available.
-  // useEditor returns null on the first render (TipTap initialises async),
-  // so we watch for the editor reference and use a ref flag to set content
-  // exactly once — preventing both "blank on first load" and infinite loops.
-  const contentInitialisedRef = useRef(false);
-  useEffect(() => {
-    if (editor && initialContent && !contentInitialisedRef.current) {
-      editor.commands.setContent(initialContent);
-      contentInitialisedRef.current = true;
-    }
-  }, [editor, initialContent]);
 
   const insertContent = useCallback(
     (content: object) => {
